@@ -12,6 +12,9 @@ class ContainerTest extends \PHPUnit_Framework_TestCase {
     private function get_container() {
         $fs = $this->getMockBuilder('cyclone\\FileSystem')
             ->disableOriginalConstructor()->getMock();
+        $fs->expects($this->once())
+            ->method('list_files')
+            ->with('deps/deps.php')->will($this->returnValue(array()));
         return new Container($fs);
     }
 
@@ -34,11 +37,11 @@ class ContainerTest extends \PHPUnit_Framework_TestCase {
         $obj = new \stdClass;
         $called = FALSE;
         $self = $this;
-        $container->provide('key', function($param_container) use ($obj, &$called, $container, $self) {
+        $this->assertEquals($container, $container->provide('key', function($param_container) use ($obj, &$called, $container, $self) {
             $called = TRUE;
             $self->assertSame($param_container, $container);
             return $obj;
-        });
+        }));
         $this->assertFalse($called);
         $this->assertSame($obj, $container->get('key'));
         $this->assertEquals(TRUE, $called);
@@ -49,12 +52,23 @@ class ContainerTest extends \PHPUnit_Framework_TestCase {
     }
 
     public function test_load() {
-        $this->markTestSkipped();
+        $fs = $this->getMockBuilder('cyclone\\FileSystem')
+            ->disableOriginalConstructor()->getMock();
+        $fs->expects($this->once())
+            ->method('list_files')
+            ->with('deps/deps.php')->will($this->returnValue(array(
+                __DIR__ . '/dep1.php',
+                __DIR__ . '/dep2.php'
+            )));
+        $container = new Container($fs);
+        $this->assertEquals('key1-dep1', $container->get('key1'));
+        $this->assertEquals('key2-dep1', $container->get('key2'));
+        $this->assertEquals('key3-dep2', $container->get('key3'));
     }
 
     public function test_publish() {
         $container = $this->get_container();
-        $container->publish('key', 'val');
+        $this->assertEquals($container, $container->publish('key', 'val'));
         $this->assertEquals('val', $container->get('key'));
     }
 
@@ -81,6 +95,10 @@ class ContainerTest extends \PHPUnit_Framework_TestCase {
         $container->provide('key4', $provider1);
         $container->publish('key4', 2);
         $this->assertEquals(1, $container->get('key4'));
+    }
+
+    public function test_singleton() {
+
     }
 
 }

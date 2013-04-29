@@ -11,12 +11,16 @@ use cyclone\di\IContainer;
 class Container implements IContainer {
 
     /**
+     * The file system object which will be used to load the dependencies.
+     *
      * @var \cyclone\FileSystem
      */
     private $_filesystem;
 
     /**
      * An array containing the already loaded dependencies
+     *
+     * dep. name => dependency pairs
      *
      * @var array
      */
@@ -32,8 +36,20 @@ class Container implements IContainer {
      */
     private $_dep_wrappers = array();
 
-    public function __construct(FileSystem $filesystem) {
+    private $_environment;
+
+    public function __construct(FileSystem $filesystem, $environment = NULL) {
         $this->_filesystem = $filesystem;
+        $this->_environment = $environment;
+        $this->load();
+    }
+
+    private function load() {
+        $dep_files = $this->_filesystem->list_files('deps/deps.php');
+        foreach ($dep_files as $dep_file) {
+            $container = $this;
+            require $dep_file;
+        }
     }
 
     /**
@@ -47,12 +63,14 @@ class Container implements IContainer {
         if ( ! (isset($this->_deps[$key]) || isset($this->_dep_wrappers[$key]))) {
             $this->_dep_wrappers[$key] = $wrapper;
         }
+        return $this;
     }
 
     public function publish($key, $value) {
         if ( ! (isset($this->_deps[$key]) || isset($this->_dep_wrappers[$key]))) {
             $this->_deps[$key] = $value;
         }
+        return $this;
     }
 
     public function get($key) {
