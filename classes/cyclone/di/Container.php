@@ -1,14 +1,13 @@
 <?php
-namespace cyclone\di\impl;
+namespace cyclone\di;
 
 use cyclone\FileSystem;
-use cyclone\di\IContainer;
 
 /**
  * @author Bence Erős <crystal@cyclonephp.org>
  * @package di
  */
-class Container implements IContainer {
+class Container {
 
     /**
      * The file system object which will be used to load the dependencies.
@@ -44,12 +43,19 @@ class Container implements IContainer {
         $this->load();
     }
 
-    private function load() {
-        $dep_files = $this->_filesystem->list_files('deps/deps.php');
+    private function load_dep_files($rel_path) {
+        $dep_files = $this->_filesystem->list_files($rel_path);
+        $container = $this;
         foreach ($dep_files as $dep_file) {
-            $container = $this;
             require $dep_file;
         }
+    }
+
+    private function load() {
+        if ($this->_environment !== NULL) {
+            $this->load_dep_files("deps/{$this->_environment}/default.php");
+        }
+        $this->load_dep_files('deps/default.php');
     }
 
     /**

@@ -1,5 +1,5 @@
 <?php
-namespace cyclone\di\impl;
+namespace cyclone\di;
 
 /**
  * @author Bence Erős <crystal@cyclonephp.org>
@@ -14,7 +14,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase {
             ->disableOriginalConstructor()->getMock();
         $fs->expects($this->once())
             ->method('list_files')
-            ->with('deps/deps.php')->will($this->returnValue(array()));
+            ->with('deps/default.php')->will($this->returnValue(array()));
         return new Container($fs);
     }
 
@@ -56,7 +56,7 @@ class ContainerTest extends \PHPUnit_Framework_TestCase {
             ->disableOriginalConstructor()->getMock();
         $fs->expects($this->once())
             ->method('list_files')
-            ->with('deps/deps.php')->will($this->returnValue(array(
+            ->with('deps/default.php')->will($this->returnValue(array(
                 __DIR__ . '/dep1.php',
                 __DIR__ . '/dep2.php'
             )));
@@ -97,8 +97,36 @@ class ContainerTest extends \PHPUnit_Framework_TestCase {
         $this->assertEquals(1, $container->get('key4'));
     }
 
-    public function test_singleton() {
+    public function test_environment_load() {
+        $fs = $this->getMockBuilder('cyclone\\FileSystem')
+            ->disableOriginalConstructor()->getMock();
+        $fs->expects($this->at(0))
+            ->method('list_files')
+            ->with('deps/env/default.php')->will($this->returnValue(array(
+                __DIR__ . '/env-dep1.php',
+                __DIR__ . '/env-dep2.php'
+            )));
 
+        $fs->expects($this->at(1))
+            ->method('list_files')
+            ->with('deps/default.php')->will($this->returnValue(array(
+                __DIR__ . '/dep1.php',
+                __DIR__ . '/dep2.php'
+            )));
+
+        $container = new Container($fs, 'env');
+        $this->assertEquals('key1-env1', $container->get('key1'));
+        $this->assertEquals('key2-env2', $container->get('key2'));
+        $this->assertEquals('key3-dep2', $container->get('key3'));
+    }
+
+    public function test_singleton() {
+        $container = $this->get_container();
+        $container->provide('key1', function() {
+            return new \stdClass;
+        });
+        $obj = $container->get('key1');
+        $this->assertSame($obj, $container->get('key1'));
     }
 
 }
