@@ -59,8 +59,48 @@ class Container {
     }
 
     /**
+     * Puts a wrapped value into the internal dependency registry. The value should be wrapped into an
+     * appropriate callable (typically a lambda function) which returns the actual value when it is called.
+     *
+     * If the dependency (returned by <code>$wrapper</code>) has subsequent dependencies, then <code>$wrapper</code>
+     * should have a <code>$container</code> parameter which will be <code>$this</code>, therefore it can be used
+     * to load the subsequent dependencies.
+     *
+     * Simple example: @code
+     * deps/default.php:
+     * $container->provide('app.mysqli', function() {
+     *      return new Mysqli('localhost', 'myusername', 'mypassword', 'mydatabase');
+     * });
+     *
+     * (somewhere in the application)
+     * ...
+     * $mysqli = $container->get('app.mysqli'); // returns the Mysqli instance
+     * @endcode
+     *
+     * Advanced example with subsequent dependencies: @code
+     * deps/default.php:
+     * $container->provide('app.mysqli', function($container) {
+     *      return new Mysqli($container->get('app.mysqli.host'),
+     *          $container->get('app.mysqli.username'),
+     *          $container->get('app.mysqli.password'),
+     *          $container->get('app.mysqli.database')
+     *      );
+     * })->publish('app.mysqli.host', 'localhost')
+     *  ->publish('app.mysqli.username', 'myusername')
+     *  ->publish('app.mysqli.password', 'mypassword')
+     *  ->publish('app.mysqli.database', 'mydatabase');
+     *
+     * (somewhere in the application)
+     * ...
+     * $mysqli = $container->get('app.mysqli'); // returns the Mysqli instance
+     * @endcode
+     *
+     * If a dependency has previously been published or provided with the same <code>$key</code> then this method
+     * does not do anything.
+     *
      * @param $key string
      * @param $wrapper callable
+     * @return Container
      * @throws \InvalidArgumentException if $wrapper is not a callable
      */
     public function provide($key, $wrapper) {
@@ -72,6 +112,16 @@ class Container {
         return $this;
     }
 
+    /**
+     * Puts a value into the internal dependency registry.
+     *
+     * If a dependency has previously been published or provided with the same <code>$key</code> then this method
+     * does not do anything.
+     *
+     * @param $key the key which identifies the dependency
+     * @param $value
+     * @return Container
+     */
     public function publish($key, $value) {
         if ( ! (isset($this->_deps[$key]) || isset($this->_dep_wrappers[$key]))) {
             $this->_deps[$key] = $value;
@@ -79,6 +129,13 @@ class Container {
         return $this;
     }
 
+    /**
+     * Returns an object which has been configured using @c publish() or @c provide() previously.
+     *
+     * @param $key the name of the dependency which has been used to publish/provide the dependency
+     * @return mixed the loaded dependency
+     * @throws \InvalidArgumentException if no dependency has been found with <code>$key</code>
+     */
     public function get($key) {
         if (isset($this->_deps[$key]))
             return $this->_deps[$key];
