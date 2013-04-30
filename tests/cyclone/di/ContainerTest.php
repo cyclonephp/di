@@ -152,4 +152,19 @@ class ContainerTest extends \PHPUnit_Framework_TestCase {
         $container->get('c');
     }
 
+    public function test_post_construct() {
+        $container = $this->get_container();
+        $container->provide('key', function() {
+            return new \stdClass;
+        });
+        $self = $this;
+        $called = FALSE;
+        $container->post_construct('key', function($value, $con) use (&$called, $self, $container) {
+            $called = TRUE;
+            $self->assertSame($container, $con);
+        });
+
+        $container->get('key');
+        $this->assertTrue($called);
+    }
 }

@@ -35,8 +35,26 @@ class Container {
      */
     private $_dep_wrappers = array();
 
+    /**
+     * A <code> dependency key =&gt; array&lt;callable&gt; </code> pair list.
+     *
+     * @var array
+     */
+    private $_post_construct_callables = array();
+
     private $_environment;
 
+    /**
+     * A stack of dependencies currently under loading.
+     *
+     * Before the @c get() method extracts a dependency from its wrapper, it checks if <code>$key</code> is already on
+     * the stack; if it is, then it throws a @c CircularDependencyException . Otherwise it pushes the according
+     * <code>$key</code> onto the stack.
+     *
+     * This stack serves as a simple dependency loop detector.
+     *
+     * @var array
+     */
     private $_get_stack = array();
 
     public function __construct(FileSystem $filesystem, $environment = NULL) {
@@ -158,10 +176,22 @@ class Container {
 
             $this->_get_stack[$key] = TRUE;
             $rval = $this->_deps[$key] = $this->_dep_wrappers[$key]($this);
+            if (isset($this->_post_construct_callables[$key])) {
+                foreach($this->_post_construct_callables[$key] as $post_construct_cb) {
+                    $post_construct_cb($rval, $this);
+                }
+            }
             unset($this->_get_stack[$key]);
             return $rval;
         }
         throw new \InvalidArgumentException("dependency '{$key}' not found");
+    }
+
+    public function post_construct($key, $callable) {
+        if ( ! isset($this->_post_construct_callables[$key])) {
+            $this->_post_construct_callables[$key] = array();
+        }
+        $this->_post_construct_callables[$key] []= $callable;
     }
 
 }
