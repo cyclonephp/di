@@ -129,4 +129,27 @@ class ContainerTest extends \PHPUnit_Framework_TestCase {
         $this->assertSame($obj, $container->get('key1'));
     }
 
+    /**
+     * @expectedException \cyclone\di\CircularDependencyException
+     * @expectedExceptionMessage Dependency loop detected: c -> a -> b -> c
+     */
+    public function test_circular_dependency() {
+        $container = $this->get_container();
+        $container->provide('a', function($container) {
+            $rval = new \stdClass;
+            $rval->b = $container->get('b');
+            return $rval;
+        });
+        $container->provide('b', function($container) {
+            $rval = new \stdClass;
+            $rval->c = $container->get('c');
+            return $rval;
+        });
+        $container->provide('c', function($container) {
+            $rval = new \stdClass;
+            $rval->a = $container->get('a');
+        });
+        $container->get('c');
+    }
+
 }

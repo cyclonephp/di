@@ -37,6 +37,8 @@ class Container {
 
     private $_environment;
 
+    private $_get_stack = array();
+
     public function __construct(FileSystem $filesystem, $environment = NULL) {
         $this->_filesystem = $filesystem;
         $this->_environment = $environment;
@@ -132,15 +134,32 @@ class Container {
     /**
      * Returns an object which has been configured using @c publish() or @c provide() previously.
      *
-     * @param $key the name of the dependency which has been used to publish/provide the dependency
+     * @param $key string the name of the dependency which has been used to publish/provide the dependency
      * @return mixed the loaded dependency
      * @throws \InvalidArgumentException if no dependency has been found with <code>$key</code>
+     * @throws CircularDependencyException if a dependency loop has been detected during building the dependency
      */
     public function get($key) {
         if (isset($this->_deps[$key]))
             return $this->_deps[$key];
         if (isset($this->_dep_wrappers[$key])) {
-            return $this->_deps[$key] = $this->_dep_wrappers[$key]($this);
+            if (isset($this->_get_stack[$key])) {
+                $msg = 'Dependency loop detected: ';
+                $dep_chain = array();
+                foreach ($this->_get_stack as $dep => $dummy) {
+                    if ($dep === $key || ! empty($dep_chain)) {
+                        $dep_chain []= $dep;
+                    }
+                }
+                $dep_chain []= $key;
+                $msg .= implode(' -> ', $dep_chain);
+                throw new CircularDependencyException($msg);
+            }
+
+            $this->_get_stack[$key] = TRUE;
+            $rval = $this->_deps[$key] = $this->_dep_wrappers[$key]($this);
+            unset($this->_get_stack[$key]);
+            return $rval;
         }
         throw new \InvalidArgumentException("dependency '{$key}' not found");
     }
